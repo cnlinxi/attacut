@@ -39,7 +39,7 @@ class Model(BaseModel):
 
         emb_dim = config['embc'] + config['embs']
 
-        self.dropout= torch.nn.Dropout(p=dropout_rate)
+        self.dropout = torch.nn.Dropout(p=dropout_rate)
 
         self.conv1 = ConvolutionBatchNorm(emb_dim, conv_filters, 3)
         self.conv2 = ConvolutionBatchNorm(emb_dim, conv_filters, 5, dilation=3)
@@ -58,19 +58,25 @@ class Model(BaseModel):
         ch_embedding = self.ch_embeddings(x_char)
         sy_embedding = self.sy_embeddings(x_syllable)
 
+        # embedding: [batch_size, ch_dim+syl_dim, seq_len]
         embedding = torch.cat((ch_embedding, sy_embedding), dim=2)
 
+        # embedding: [batch_size, embed_dim, seq_len]
         embedding = embedding.permute(0, 2, 1)
 
+        # conv1: [batch_size, seq_len, hidden_size]
         conv1 = self.dropout(self.conv1(embedding).permute(0, 2, 1))
         conv2 = self.dropout(self.conv2(embedding).permute(0, 2, 1))
         conv3 = self.dropout(self.conv3(embedding).permute(0, 2, 1))
 
+        # out: [batch_size, seq_len, hidden_size, 3]
         out = torch.stack((conv1, conv2, conv3), 3)
 
+        # out: [batch_size, seq_len, hidden_size]
         out, _ = torch.max(out, 3)
 
         out = F.relu(self.linear1(out))
+        # out: [batch_size, seq_len, 1]
         out = self.linear2(out)
 
         out = out.view(-1)
